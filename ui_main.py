@@ -83,6 +83,7 @@ class Main(QMainWindow, ui.Ui_mainWindow):
         self.printf(strs)
 
     def wait(self):
+        #TODO(Paul): bug
         self.printf("等待15秒，避免過度頻繁查詢...")
         self.pushButton.setEnabled(False)
         self.waiting.start()
@@ -91,6 +92,7 @@ class Main(QMainWindow, ui.Ui_mainWindow):
         self.pushButton.setEnabled(True)
 
     def display_info(self):
+        #TODO(Paul): bug 連查3次會出現重複
         self.scoreLabel.setText("{} 顆星".format(str(self.score)))
         self.stockNameLabel.setText(self.info["股票名稱"])
         self.dateLabel.setText(self.info["日期"])

@@ -117,6 +117,7 @@ class StockEvaluator():
             return net
 
         def _cal_qfii_net5(df, latest):
+            #TODO(Paul): bug
             cal_list = []
             temp = df["外資買賣超(張)"].to_list()[latest:latest+5]
             for i in temp:
@@ -127,6 +128,7 @@ class StockEvaluator():
             return sum(cal_list)
 
         def _cal_di_net5(df, latest):
+            #TODO(Paul): bug
             cal_list = []
             temp = df["投信買賣超(張)"].to_list()[latest:latest+5]
             for i in temp:
