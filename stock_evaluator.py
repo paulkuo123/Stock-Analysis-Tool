@@ -83,43 +83,42 @@ class StockEvaluator():
         di_net5: 投信買賣超(張) 5天淨值
         """
 
-        def _is_published(latest):
-            observed = ["成交", "外資買賣超(張)", "投信買賣超(張)"]
-            for i, key in enumerate(observed):
-                temp = df[key][latest]
-                if i > 0:
-                    if isinstance(temp, str) and "," in temp:
-                        temp = temp.replace(",", "")
-                    temp = float(temp)
-                if math.isnan(temp):
-                    return False
-            return True
+        # def _is_published(latest):
+        #     observed = ["成交", "外資買賣超(張)", "投信買賣超(張)"]
+        #     for i, key in enumerate(observed):
+        #         temp = df[key][latest]
+        #         if i > 0:
+        #             if isinstance(temp, str) and "," in temp:
+        #                 temp = temp.replace(",", "")
+        #             temp = float(temp)
+        #         if math.isnan(temp):
+        #             return False
+        #     return True
 
         def _parse_date(df):
-            date = df["期別"][latest]
+            date = df["期別"][0]
             year, month_day= date.split("'")
             month, day = month_day.split("/")
             date = "20" + year + month + day
             return date
 
-        def _parse_qfii_net(df, latest):
-            net = df["外資買賣超(張)"][latest]
+        def _parse_qfii_net(df):
+            net = df["外資買賣超(張)"][0]
             if isinstance(net, str) and "," in net:
                 net = net.replace(",", "")
             net = float(net)
             return net
 
-        def _parse_di_net(df, latest):
-            net = df["投信買賣超(張)"][latest]
+        def _parse_di_net(df):
+            net = df["投信買賣超(張)"][0]
             if isinstance(net, str) and "," in net:
                 net = net.replace(",", "")
             net = float(net)
             return net
 
-        def _cal_qfii_net5(df, latest):
-            #TODO(Paul): bug
+        def _cal_qfii_net5(df):
             cal_list = []
-            temp = df["外資買賣超(張)"].to_list()[latest:latest+5]
+            temp = df["外資買賣超(張)"].to_list()[:5]
             for i in temp:
                 if isinstance(i, str) and "," in i:
                     i = i.replace(",", "")
@@ -127,34 +126,29 @@ class StockEvaluator():
             cal_list = [float(i) for i in cal_list]
             return sum(cal_list)
 
-        def _cal_di_net5(df, latest):
-            #TODO(Paul): bug
+        def _cal_di_net5(df):
             cal_list = []
-            temp = df["投信買賣超(張)"].to_list()[latest:latest+5]
+            temp = df["投信買賣超(張)"].to_list()[:5]
             for i in temp:
                 if isinstance(i, str) and "," in i:
                     i = i.replace(",", "")
                 cal_list.append(i)
             cal_list = [float(i) for i in cal_list]
             return sum(cal_list)
-
+            
         df = self._parse_html(stockNo)
-
-        latest = 0
-        while True:
-            if _is_published(latest):
-                break
-            else:
-                latest += 1
+        extract_column = ["期別", "成交", "外資買賣超(張)", "投信買賣超(張)"]
+        df = df[extract_column]
+        df = df.dropna(axis=0,how='any')
 
         self.info["股票代碼"] = self.stockNo
         self.info["股票名稱"] = self.stock_name
         self.info["日期"] = _parse_date(df)
-        self.info["成交價"] = df["成交"][latest]
-        self.info["外資買超"] = _parse_qfii_net(df, latest)
-        self.info["外資近5日買超"] = _cal_qfii_net5(df, latest)
-        self.info["投信買超"] = _parse_di_net(df, latest)
-        self.info["投信近5日買超"] = _cal_di_net5(df, latest)
+        self.info["成交價"] = df["成交"][0]
+        self.info["外資買超"] = _parse_qfii_net(df)
+        self.info["外資近5日買超"] = _cal_qfii_net5(df)
+        self.info["投信買超"] = _parse_di_net(df)
+        self.info["投信近5日買超"] = _cal_di_net5(df)
 
     def _parse_scr_html(self, stockNo):
         r = requests.get(self.scr_url.format(str(stockNo)), headers=self.scr_headers)
@@ -238,9 +232,7 @@ class StockEvaluator():
 
     def crawl(self, stockNo):
         self.get_info(stockNo)
-        # time.sleep(1)
         self.get_scr_info(stockNo)
-        # time.sleep(1)
         self.get_large_trader_info(stockNo)
         return self.info
 
