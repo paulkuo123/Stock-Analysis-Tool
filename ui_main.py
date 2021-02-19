@@ -30,6 +30,7 @@ class Main(QMainWindow, ui.Ui_mainWindow):
 
     def evaluate(self):
         try:
+            self.pushButton.setEnabled(False)
             self.clear_all()
             self.printf("開始分析...")
             stockNo = self.lineEdit.text()
@@ -92,7 +93,6 @@ class Main(QMainWindow, ui.Ui_mainWindow):
         self.printf(strs)
 
     def wait(self):
-        self.pushButton.setEnabled(False)
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.timerTick) 
         self.step = 15
