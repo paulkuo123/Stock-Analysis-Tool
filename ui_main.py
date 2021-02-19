@@ -8,6 +8,7 @@ from stock_evaluator import StockEvaluator
 import numpy as np
 from QCandyUi import CandyWindow
 from thread import CallBackThread
+import images
 
 
 class Main(QMainWindow, ui.Ui_mainWindow):
@@ -32,6 +33,7 @@ class Main(QMainWindow, ui.Ui_mainWindow):
             self.clear_all()
             self.printf("開始分析...")
             stockNo = int(self.lineEdit.text())
+            #TODO(Paul): 避免不是股票代碼的數字
             self.evaluator = StockEvaluator(self.callback)
             self.info, self.score = self.evaluator.evaluate(stockNo)
             self.display_img()
@@ -66,11 +68,11 @@ class Main(QMainWindow, ui.Ui_mainWindow):
 
     def display_img(self):
         if self.score >= 4.0:
-            self.pixmap = QPixmap("./refs/good.jpg")
+            self.pixmap = QPixmap(":refs/good.jpg")
         elif self.score >= 3.0 and self.score < 4.0:
-            self.pixmap = QPixmap("./refs/ok.jpg")
+            self.pixmap = QPixmap(":refs/ok.jpg")
         else:
-            self.pixmap = QPixmap("./refs/bad.jpg")
+            self.pixmap = QPixmap(":refs/bad.jpg")
 
         self.imgLabel.setPixmap(self.pixmap)
         self.imgLabel.setScaledContents(True)
@@ -132,6 +134,6 @@ if __name__ == '__main__':
     import sys
     app = QtWidgets.QApplication(sys.argv)
     window = Main()
-    window = CandyWindow.createWindow(window, 'blueDeep', title="Stock Evaluator", ico_path=r"./refs/window_icon.jpg")
+    window = CandyWindow.createWindow(window, 'blueDeep', title="Stock Evaluator", ico_path=":refs/window_icon.jpg")
     window.show()
     sys.exit(app.exec_())

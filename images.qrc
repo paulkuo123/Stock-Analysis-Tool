@@ -1,0 +1,8 @@
+<RCC>
+    <qresource prefix="/">
+        <file>refs/good.jpg</file>
+        <file>refs/ok.jpg</file>
+        <file>refs/bad.jpg</file>
+        <file>refs/window_icon.jpg</file>
+    </qresource>
+</RCC>
