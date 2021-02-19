@@ -42,15 +42,18 @@ class StockEvaluator():
         self.callback_thread = callback_thread
 
     def _parse_html(self, stockNo):
-        self.stockNo = int(stockNo)
-        r = requests.get(self.url.format(str(self.stockNo)), headers=self.headers)
+        r = requests.get(self.url.format(stockNo), headers=self.headers)
         r.encoding = 'utf-8'
         
-        if "您的瀏覽量異常" not in r.text:
-            soup = BeautifulSoup(r.text, 'lxml')
-        else:
+        if "您的瀏覽量異常" in r.text:
             raise RuntimeError
+        elif "查無法人買賣相關資料!!" in r.text:
+            raise ValueError
+        else:
+            soup = BeautifulSoup(r.text, 'lxml')
         
+        self.stockNo = int(stockNo)
+
         # find stock name
         table = soup.find('table', {'class': 'solid_1_padding_3_1_tbl'})
         a = table.find("a", {"class": "link_blue"})

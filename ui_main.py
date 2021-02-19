@@ -32,14 +32,15 @@ class Main(QMainWindow, ui.Ui_mainWindow):
         try:
             self.clear_all()
             self.printf("開始分析...")
-            stockNo = int(self.lineEdit.text())
-            #TODO(Paul): 避免不是股票代碼的數字
+            stockNo = self.lineEdit.text()
             self.evaluator = StockEvaluator(self.callback)
             self.info, self.score = self.evaluator.evaluate(stockNo)
             self.display_img()
             self.display_info()
             self.wait()
 
+        except ValueError:
+            self.printf("查無股票代碼:{}的相關資料，請輸入正確股票代碼。".format(stockNo))
         except RuntimeError:
             self.printf("您的瀏覽量異常, 已影響網站速度, 目前暫時關閉服務, 請稍後再重新使用並調降程式查詢頻率, 以維護一般使用者的權益。")
         except Exception as e:
