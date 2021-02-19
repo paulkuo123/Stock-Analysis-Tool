@@ -7,14 +7,15 @@ import Ui_stock_evaluator_ui as ui
 from stock_evaluator import StockEvaluator
 import numpy as np
 from QCandyUi import CandyWindow
-from thread import CallBackThread, WaitingThread
+from thread import CallBackThread
+import sys
+sys.setrecursionlimit(9000000)
 
 class Main(QMainWindow, ui.Ui_mainWindow):
     def __init__(self):
         super().__init__()
         self.setupUi(self)
         self.callback = CallBackThread()
-        self.waiting = WaitingThread()
         self.lineEdit.returnPressed.connect(self.evaluate)
         self.pushButton.clicked.connect(self.evaluate)
         self.scoreLabel.setStyleSheet("color: red")
@@ -30,13 +31,13 @@ class Main(QMainWindow, ui.Ui_mainWindow):
     def evaluate(self):
         try:
             self.clear_all()
-            self.printf("Start evaluating...")
+            self.printf("開始分析...")
             stockNo = int(self.lineEdit.text())
             self.evaluator = StockEvaluator(self.callback)
             self.info, self.score = self.evaluator.evaluate(stockNo)
             self.display_img()
             self.display_info()
-            # self.wait()
+            self.wait()
 
         except RuntimeError:
             self.printf("您的瀏覽量異常, 已影響網站速度, 目前暫時關閉服務, 請稍後再重新使用並調降程式查詢頻率, 以維護一般使用者的權益。")
@@ -89,13 +90,19 @@ class Main(QMainWindow, ui.Ui_mainWindow):
         self.printf(strs)
 
     def wait(self):
-        #TODO(Paul): bug
-        self.printf("請等待15秒，避免過度頻繁查詢...")
         self.pushButton.setEnabled(False)
-        self.waiting.start()
-        self.waiting.join()
-        self.printf("完成")
-        self.pushButton.setEnabled(True)
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.timerTick) 
+        self.step = 15
+        self.timer.start(1000) 
+        self.printf("\n請等待15秒，避免頻繁查詢...")
+
+    def timerTick(self): 
+        self.step -= 1 
+        if self.step <= 0: 
+            self.timer.stop()
+            self.printf("等待完畢，可繼續查詢")
+            self.pushButton.setEnabled(True)
 
     def display_info(self):
         self.scoreLabel.setText("{} 顆星".format(str(self.score)))
@@ -119,7 +126,7 @@ class Main(QMainWindow, ui.Ui_mainWindow):
 
             self.printf("{}: {}".format(key, value))
         self.printf("=========================================")
-        self.printf("Success!")
+        self.printf("分析完畢!")
 
 
 if __name__ == '__main__':
