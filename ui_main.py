@@ -8,8 +8,7 @@ from stock_evaluator import StockEvaluator
 import numpy as np
 from QCandyUi import CandyWindow
 from thread import CallBackThread
-import sys
-sys.setrecursionlimit(9000000)
+
 
 class Main(QMainWindow, ui.Ui_mainWindow):
     def __init__(self):
