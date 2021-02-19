@@ -45,9 +45,12 @@ class StockEvaluator():
         self.stockNo = int(stockNo)
         r = requests.get(self.url.format(str(self.stockNo)), headers=self.headers)
         r.encoding = 'utf-8'
-
-        soup = BeautifulSoup(r.text, 'lxml')
-
+        
+        if "您的瀏覽量異常" not in r.text:
+            soup = BeautifulSoup(r.text, 'lxml')
+        else:
+            raise RuntimeError
+        
         # find stock name
         table = soup.find('table', {'class': 'solid_1_padding_3_1_tbl'})
         a = table.find("a", {"class": "link_blue"})

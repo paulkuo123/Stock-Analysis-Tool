@@ -37,9 +37,10 @@ class Main(QMainWindow, ui.Ui_mainWindow):
             self.display_img()
             self.display_info()
             # self.wait()
-            
+
+        except RuntimeError:
+            self.printf("您的瀏覽量異常, 已影響網站速度, 目前暫時關閉服務, 請稍後再重新使用並調降程式查詢頻率, 以維護一般使用者的權益。")
         except Exception as e:
-            #TODO(Paul): catch 被擋的error
             self.printf(str(e))
 
     def _transform(self, data):
@@ -89,7 +90,7 @@ class Main(QMainWindow, ui.Ui_mainWindow):
 
     def wait(self):
         #TODO(Paul): bug
-        self.printf("等待15秒，避免過度頻繁查詢...")
+        self.printf("請等待15秒，避免過度頻繁查詢...")
         self.pushButton.setEnabled(False)
         self.waiting.start()
         self.waiting.join()
