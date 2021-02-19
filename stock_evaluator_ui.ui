@@ -43,7 +43,7 @@
     <property name="font">
      <font>
       <family>Arial Black</family>
-      <pointsize>14</pointsize>
+      <pointsize>18</pointsize>
       <weight>75</weight>
       <bold>true</bold>
      </font>
@@ -596,7 +596,7 @@
      <x>0</x>
      <y>0</y>
      <width>800</width>
-     <height>25</height>
+     <height>21</height>
     </rect>
    </property>
   </widget>

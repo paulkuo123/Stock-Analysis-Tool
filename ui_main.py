@@ -17,11 +17,15 @@ class Main(QMainWindow, ui.Ui_mainWindow):
         self.waiting = WaitingThread()
         self.lineEdit.returnPressed.connect(self.evaluate)
         self.pushButton.clicked.connect(self.evaluate)
-        # self.setWindowIcon(QtGui.QIcon(r"./refs/window_icon.jpg"))
-        self.scoreLabel.setStyleSheet("color:rgb({},{},{})".format(255, 0, 0))
-        # self.diLabel.setStyleSheet("color:rgb({},{},{},255)".format(255, 0, 0))
+        self.scoreLabel.setStyleSheet("color: red")
+        self.qfiiLabel.setStyleSheet("color: red")
+        self.qfiiLabel5.setStyleSheet("color: red")
+        self.diLabel.setStyleSheet("color: red")
+        self.diLabel5.setStyleSheet("color: red")
+        self.scrLabel.setStyleSheet("color: red")
+        self.scrLabel20.setStyleSheet("color: red")
+        self.largeTraderLabel.setStyleSheet("color: red")
         self.execute_callback()
-
 
     def evaluate(self):
         try:
@@ -35,6 +39,7 @@ class Main(QMainWindow, ui.Ui_mainWindow):
             # self.wait()
             
         except Exception as e:
+            #TODO(Paul): catch 被擋的error
             self.printf(str(e))
 
     def _transform(self, data):
@@ -92,7 +97,6 @@ class Main(QMainWindow, ui.Ui_mainWindow):
         self.pushButton.setEnabled(True)
 
     def display_info(self):
-        #TODO(Paul): bug 連查3次會出現重複
         self.scoreLabel.setText("{} 顆星".format(str(self.score)))
         self.stockNameLabel.setText(self.info["股票名稱"])
         self.dateLabel.setText(self.info["日期"])

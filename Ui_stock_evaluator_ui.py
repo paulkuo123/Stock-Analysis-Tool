@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'd:\Python_Script\Stock\stock_evaluator_ui.ui'
+# Form implementation generated from reading ui file 'd:\pythonwork\Stock-Evaluator\stock_evaluator_ui.ui'
 #
 # Created by: PyQt5 UI code generator 5.15.2
 #
@@ -29,7 +29,7 @@ class Ui_mainWindow(object):
         self.scoreLabel.setGeometry(QtCore.QRect(310, 250, 271, 131))
         font = QtGui.QFont()
         font.setFamily("Arial Black")
-        font.setPointSize(14)
+        font.setPointSize(18)
         font.setBold(True)
         font.setWeight(75)
         self.scoreLabel.setFont(font)
@@ -319,7 +319,7 @@ class Ui_mainWindow(object):
         self.horizontalLayout_2.addWidget(self.label_4)
         mainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(mainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 800, 25))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 800, 21))
         self.menubar.setObjectName("menubar")
         mainWindow.setMenuBar(self.menubar)
         self.statusbar = QtWidgets.QStatusBar(mainWindow)
