@@ -20,6 +20,7 @@ class Main(QMainWindow, ui.Ui_mainWindow):
         # self.setWindowIcon(QtGui.QIcon(r"./refs/window_icon.jpg"))
         self.scoreLabel.setStyleSheet("color:rgb({},{},{})".format(255, 0, 0))
         # self.diLabel.setStyleSheet("color:rgb({},{},{},255)".format(255, 0, 0))
+        self.execute_callback()
 
 
     def evaluate(self):
@@ -28,7 +29,6 @@ class Main(QMainWindow, ui.Ui_mainWindow):
             self.printf("Start evaluating...")
             stockNo = int(self.lineEdit.text())
             self.evaluator = StockEvaluator(self.callback)
-            self.execute_callback()
             self.info, self.score = self.evaluator.evaluate(stockNo)
             self.display_img()
             self.display_info()
@@ -107,7 +107,12 @@ class Main(QMainWindow, ui.Ui_mainWindow):
 
         self.printf("=================詳細資訊=================")
         for key, value in self.info.items():
-                self.printf("{}: {}".format(key, value))
+            if value == True:
+                value = "是"
+            elif value == False:
+                value = "否"
+
+            self.printf("{}: {}".format(key, value))
         self.printf("=========================================")
         self.printf("Success!")
 

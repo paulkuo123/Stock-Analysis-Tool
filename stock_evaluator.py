@@ -166,7 +166,7 @@ class StockEvaluator():
 
     def get_scr_info(self, stockNo):
         def _is_published(df):
-            #TODO(Paul)
+            #TODO(Paul): nan bug
             pass
         
         if self.callback_thread:
@@ -238,7 +238,7 @@ class StockEvaluator():
 
     # def crawl(self, stockNo):
     #     # pool = mp.Pool(4)
-    #     #TODO(Paul)
+    #     #TODO(Paul): multiprocessing
     #     with mp.Pool(processes=4) as pool:
     #         pool.apply_async(self.get_info, args=(stockNo,))
     #         pool.apply_async(self.get_scr_info, args=(stockNo,))
