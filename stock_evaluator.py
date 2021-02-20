@@ -9,6 +9,7 @@ import multiprocessing as mp
 
 class StockEvaluator():
     def __init__(self, callback_thread=None):
+        #TODO(Paul): 改成不是goodinfo的網站
         self.headers = {
             "user-agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.104 Safari/537.36",
@@ -145,7 +146,7 @@ class StockEvaluator():
         df = self._parse_html(stockNo)
         extract_column = ["期別", "成交", "外資買賣超(張)", "投信買賣超(張)"]
         df = df[extract_column]
-        df = df.dropna(axis=0,how='any')
+        df = df.dropna(axis=0, how='any')
 
         self.info["股票代碼"] = self.stockNo
         self.info["股票名稱"] = self.stock_name
@@ -189,7 +190,12 @@ class StockEvaluator():
         self.info["20日籌碼集中度增加"] = True if lastest_week > previous_week_20 else False
 
     def _parse_large_trader_html(self, r):
-        soup = BeautifulSoup(r.text, 'lxml')
+        if "您的瀏覽量異常" in r.text:
+            raise RuntimeError
+        elif "查無法人買賣相關資料!!" in r.text:
+            raise ValueError
+        else:
+            soup = BeautifulSoup(r.text, 'lxml')
 
         # find stock name
         # table = soup.find('table', {'class': 'solid_1_padding_3_1_tbl'})
