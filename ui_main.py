@@ -72,7 +72,7 @@ class Main(QMainWindow, ui.Ui_mainWindow):
         self.scrLabel20.clear()
         self.largeTraderLabel.clear()
         self.scoreLabel.clear()
-        self.imgLabel.setStyleSheet("")
+        self.imgLabel.setPixmap(QPixmap(""))
         self.textBrowser.clear()
 
     def display_img(self):
