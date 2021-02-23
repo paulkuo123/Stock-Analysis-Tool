@@ -73,10 +73,14 @@ class StockEvaluator():
         data = soup.select_one("#divBuySaleDetailData")
         df = pd.read_html(data.prettify())
         df = df[2]
-        # col1 = df.columns.get_level_values(6).to_list()
-        # col2 = df.columns.get_level_values(7).to_list()
-        col1 = df.columns.get_level_values(4).to_list()
-        col2 = df.columns.get_level_values(5).to_list()
+
+        try:
+            col1 = df.columns.get_level_values(6).to_list()
+            col2 = df.columns.get_level_values(7).to_list()
+        except:
+            col1 = df.columns.get_level_values(4).to_list()
+            col2 = df.columns.get_level_values(5).to_list()
+
         merge = [i + j for i, j in zip(col1, col2)]
         merge = col1[:5] + merge[5:]
         df.columns = merge
@@ -210,7 +214,11 @@ class StockEvaluator():
         data = soup.select_one("#divEquityDistributionClassHis")
         df = pd.read_html(data.prettify())
         df = df[2]
-        col = df.columns.get_level_values(11).to_list()
+        try:
+            col = df.columns.get_level_values(11).to_list()
+        except:
+            col = df.columns.get_level_values(5).to_list()
+
         df.columns = col
         df.columns = df.columns.str.replace(" ", "")
         return df
