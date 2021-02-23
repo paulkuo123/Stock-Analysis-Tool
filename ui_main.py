@@ -38,6 +38,7 @@ class Main(QMainWindow, ui.Ui_mainWindow):
             self.display_img()
             self.display_info()
             self.wait()
+            #TODO:快速查詢的時候不會鎖定按鍵
 
         except ValueError:
             self.printf("查無股票代碼:{}的相關資料，請輸入正確股票代碼。".format(stockNo))
