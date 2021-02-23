@@ -30,6 +30,8 @@ class Main(QMainWindow, ui.Ui_mainWindow):
 
     def evaluate(self):
         try:
+            self.pushButton.setEnabled(False)
+            self.lineEdit.setEnabled(False)
             self.clear_all()
             self.printf("開始分析...")
             stockNo = self.lineEdit.text()
@@ -42,10 +44,16 @@ class Main(QMainWindow, ui.Ui_mainWindow):
 
         except ValueError:
             self.printf("查無股票代碼:{}的相關資料，請輸入正確股票代碼。".format(stockNo))
+            self.pushButton.setEnabled(True)
+            self.lineEdit.setEnabled(True)
         except RuntimeError:
             self.printf("您的瀏覽量異常, 已影響網站速度, 目前暫時關閉服務, 請稍後再重新使用並調降程式查詢頻率, 以維護一般使用者的權益。")
+            self.pushButton.setEnabled(True)
+            self.lineEdit.setEnabled(True)
         except Exception as e:
             self.printf(str(e))
+            self.pushButton.setEnabled(True)
+            self.lineEdit.setEnabled(True)
 
     def _transform(self, data):
         if isinstance(data, bool):
@@ -65,7 +73,7 @@ class Main(QMainWindow, ui.Ui_mainWindow):
         self.scrLabel20.clear()
         self.largeTraderLabel.clear()
         self.scoreLabel.clear()
-        self.imgLabel.setStyleSheet("")
+        self.imgLabel.setPixmap(QPixmap(""))
         self.textBrowser.clear()
 
     def display_img(self):
@@ -93,19 +101,19 @@ class Main(QMainWindow, ui.Ui_mainWindow):
         self.printf(strs)
 
     def wait(self):
-        self.pushButton.setEnabled(False)
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.timerTick) 
         self.step = 15
         self.timer.start(1000) 
         self.printf("\n請等待15秒，避免頻繁查詢...")
 
-    def timerTick(self): 
+    def timerTick(self):
         self.step -= 1 
-        if self.step <= 0: 
+        if self.step <= 0:
             self.timer.stop()
             self.printf("等待完畢，可繼續查詢")
             self.pushButton.setEnabled(True)
+            self.lineEdit.setEnabled(True)
 
     def display_info(self):
         self.scoreLabel.setText("{} 顆星".format(str(self.score)))
