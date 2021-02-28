@@ -144,6 +144,6 @@ if __name__ == '__main__':
     import sys
     app = QtWidgets.QApplication(sys.argv)
     window = Main()
-    window = CandyWindow.createWindow(window, 'blueDeep', title="郭菲特的籌碼選股小工具", ico_path=":refs/window_icon.jpg")
+    window = CandyWindow.createWindow(window, 'blueDeep', title="籌碼選股小工具 by郭菲特", ico_path=":refs/window_icon.jpg")
     window.show()
     sys.exit(app.exec_())

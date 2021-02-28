@@ -9,6 +9,7 @@ import multiprocessing as mp
 
 class StockEvaluator():
     def __init__(self, callback_thread=None):
+        # test123
         #TODO(Paul): 改成不是goodinfo的網站
         #TODO(Paul): 6770力積電 800張大戶bug
         self.headers = {
