@@ -111,11 +111,17 @@ class StockEvaluator():
         #     return True
 
         def _parse_date(df):
-            date = df["期別"][0]
-            year, month_day= date.split("'")
-            month, day = month_day.split("/")
-            date = "20" + year + month + day
-            return date
+            try:
+                date = df["期別"][0]
+                year, month_day= date.split("'")
+                month, day = month_day.split("/")
+                date = "20" + year + "/" + month + "/" + day
+                return date
+            except:
+                date = df["期別"][0]
+                month, day = date.split("/")
+                date = month + "/" +  day
+                return date
 
         def _parse_qfii_net(df):
             net = df["外資買賣超(張)"][0]
