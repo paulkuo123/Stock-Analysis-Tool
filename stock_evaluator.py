@@ -58,10 +58,7 @@ class StockEvaluator():
         self.stockNo = int(stockNo)
 
         # find stock name
-        table = soup.find('table', {'class': 'solid_1_padding_3_1_tbl'})
-        a = table.find("a", {"class": "link_blue"})
-        start_pos = a.text.find("\xa0")
-        self.stock_name = a.text[start_pos+1:]
+        self.stock_name = soup.find_all("a", href=f"StockDetail.asp?STOCK_ID={stockNo}")[1].string.split("\xa0")[1]
 
         if self.callback_thread:
             self.callback_thread.callbackSignal.emit("抓取【{}】籌碼資訊".format(self.stock_name))
@@ -75,13 +72,8 @@ class StockEvaluator():
         df = pd.read_html(data.prettify())
         df = df[2]
 
-        try:
-            col1 = df.columns.get_level_values(6).to_list()
-            col2 = df.columns.get_level_values(7).to_list()
-        except:
-            col1 = df.columns.get_level_values(4).to_list()
-            col2 = df.columns.get_level_values(5).to_list()
-
+        col1 = df.columns.get_level_values(0).to_list()
+        col2 = df.columns.get_level_values(1).to_list()
         merge = [i + j for i, j in zip(col1, col2)]
         merge = col1[:5] + merge[5:]
         df.columns = merge
@@ -98,40 +90,28 @@ class StockEvaluator():
         di_net5: 投信買賣超(張) 5天淨值
         """
 
-        # def _is_published(latest):
-        #     observed = ["成交", "外資買賣超(張)", "投信買賣超(張)"]
-        #     for i, key in enumerate(observed):
-        #         temp = df[key][latest]
-        #         if i > 0:
-        #             if isinstance(temp, str) and "," in temp:
-        #                 temp = temp.replace(",", "")
-        #             temp = float(temp)
-        #         if math.isnan(temp):
-        #             return False
-        #     return True
-
-        def _parse_date(df):
+        def _parse_date(df, first_index=0):
             try:
-                date = df["期別"][0]
+                date = df["期別"][first_index]
                 year, month_day= date.split("'")
                 month, day = month_day.split("/")
                 date = "20" + year + "/" + month + "/" + day
                 return date
             except:
-                date = df["期別"][0]
+                date = df["期別"][first_index]
                 month, day = date.split("/")
                 date = month + "/" +  day
                 return date
 
-        def _parse_qfii_net(df):
-            net = df["外資買賣超(張)"][0]
+        def _parse_qfii_net(df, first_index=0):
+            net = df["外資買賣超(張)"][first_index]
             if isinstance(net, str) and "," in net:
                 net = net.replace(",", "")
             net = float(net)
             return net
 
-        def _parse_di_net(df):
-            net = df["投信買賣超(張)"][0]
+        def _parse_di_net(df, first_index=0):
+            net = df["投信買賣超(張)"][first_index]
             if isinstance(net, str) and "," in net:
                 net = net.replace(",", "")
             net = float(net)
@@ -162,13 +142,26 @@ class StockEvaluator():
         df = df[extract_column]
         df = df.dropna(axis=0, how='any')
 
+
         self.info["股票代碼"] = self.stockNo
         self.info["股票名稱"] = self.stock_name
-        self.info["日期"] = _parse_date(df)
-        self.info["成交價"] = df["成交"][0]
-        self.info["外資買超"] = _parse_qfii_net(df)
+        try:
+            self.info["日期"] = _parse_date(df)
+        except:
+            self.info["日期"] = _parse_date(df, first_index=1)
+        try:
+            self.info["成交價"] = df["成交"][0]
+        except:
+            self.info["成交價"] = df["成交"][1]
+        try: 
+            self.info["外資買超"] = _parse_qfii_net(df)
+        except:
+            self.info["外資買超"] = _parse_qfii_net(df, first_index=1)
         self.info["外資近5日買超"] = _cal_qfii_net5(df)
-        self.info["投信買超"] = _parse_di_net(df)
+        try: 
+            self.info["投信買超"] = _parse_di_net(df)
+        except:
+            self.info["投信買超"] = _parse_di_net(df, first_index=1)
         self.info["投信近5日買超"] = _cal_di_net5(df)
 
     def _parse_scr_html(self, stockNo):
@@ -211,20 +204,11 @@ class StockEvaluator():
             raise ValueError
         else:
             soup = BeautifulSoup(r.text, 'lxml')
-
-        # find stock name
-        # table = soup.find('table', {'class': 'solid_1_padding_3_1_tbl'})
-        # a = table.find("a", {"class": "link_blue"})
-        # start_pos = a.text.find("\xa0")
-        # self.stock_name = a.text[start_pos+1:]
         
         data = soup.select_one("#divEquityDistributionClassHis")
         df = pd.read_html(data.prettify())
         df = df[2]
-        try:
-            col = df.columns.get_level_values(11).to_list()
-        except:
-            col = df.columns.get_level_values(5).to_list()
+        col = df.columns.get_level_values(1).to_list()
 
         df.columns = col
         df.columns = df.columns.str.replace(" ", "")
@@ -232,7 +216,7 @@ class StockEvaluator():
     
     def get_large_trader_info(self, stockNo):
         def _is_published(latest):
-            observed = ["800至1千張", "超過1千張"]
+            observed = ["＞800張≦1千張", "＞1千張"]
             for _, key in enumerate(observed):
                 temp = df[key][latest]
                 if temp == "-":
@@ -256,8 +240,8 @@ class StockEvaluator():
                 latest += 1
         month = latest + 4
 
-        large_trader = float(df["800至1千張"][latest]) + float(df["超過1千張"][latest])
-        large_trader_month = float(df["800至1千張"][month]) + float(df["超過1千張"][month])
+        large_trader = float(df["＞800張≦1千張"][latest]) + float(df["＞1千張"][latest])
+        large_trader_month = float(df["＞800張≦1千張"][month]) + float(df["＞1千張"][month])
         self.info["800張大戶"] = large_trader
         self.info["800大戶增加(月)"] = bool(np.maximum(large_trader - large_trader_month, 0))
 
