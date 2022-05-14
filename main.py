@@ -77,11 +77,11 @@ class Main(QMainWindow, ui.Ui_mainWindow):
 
     def display_img(self):
         if self.score >= 4.0:
-            self.pixmap = QPixmap(":refs/good.jpg")
+            self.pixmap = QPixmap("refs/good.jpg")
         elif self.score >= 3.0 and self.score < 4.0:
-            self.pixmap = QPixmap(":refs/ok.jpg")
+            self.pixmap = QPixmap("refs/ok.jpg")
         else:
-            self.pixmap = QPixmap(":refs/bad.jpg")
+            self.pixmap = QPixmap("refs/bad.jpg")
 
         self.imgLabel.setPixmap(self.pixmap)
         self.imgLabel.setScaledContents(True)
