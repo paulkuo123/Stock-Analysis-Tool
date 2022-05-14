@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from PyQt5 import QtWidgets, QtCore, QtGui
+from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QMainWindow
 from PyQt5.QtCore import QTimer
 from PyQt5.QtGui import QPixmap
@@ -8,7 +8,6 @@ from stock_evaluator import StockEvaluator
 import numpy as np
 from QCandyUi import CandyWindow
 from thread import CallBackThread
-import images
 
 
 class Main(QMainWindow, ui.Ui_mainWindow):
@@ -42,11 +41,11 @@ class Main(QMainWindow, ui.Ui_mainWindow):
             self.wait()
             #TODO:快速查詢的時候不會鎖定按鍵
 
-        except ValueError:
+        except ValueError as e:
             self.printf("查無股票代碼:{}的相關資料，請輸入正確股票代碼。".format(stockNo))
             self.pushButton.setEnabled(True)
             self.lineEdit.setEnabled(True)
-        except RuntimeError:
+        except RuntimeError as e:
             self.printf("您的瀏覽量異常, 已影響網站速度, 目前暫時關閉服務, 請稍後再重新使用並調降程式查詢頻率, 以維護一般使用者的權益。")
             self.pushButton.setEnabled(True)
             self.lineEdit.setEnabled(True)
@@ -144,6 +143,6 @@ if __name__ == '__main__':
     import sys
     app = QtWidgets.QApplication(sys.argv)
     window = Main()
-    window = CandyWindow.createWindow(window, 'blueDeep', title="籌碼選股小工具 by郭菲特", ico_path=":refs/window_icon.jpg")
+    window = CandyWindow.createWindow(window, 'blueDeep', title="籌碼選股小工具", ico_path=":refs/window_icon.jpg")
     window.show()
     sys.exit(app.exec_())

@@ -3,12 +3,9 @@
 import requests
 from io import StringIO
 import pandas as pd
-import numpy as np
 import datetime
-import json
 import time
 import os
-from argparse import ArgumentParser
 
 # 三大法人買賣金額
 

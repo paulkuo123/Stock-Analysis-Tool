@@ -1,12 +1,7 @@
 # -*- coding: utf-8 -*-
 # coding: utf-8
 import requests
-from io import StringIO
 import pandas as pd
-import numpy as np
-import datetime
-import json
-from argparse import ArgumentParser
 from bs4 import BeautifulSoup
 from decimal import Decimal, ROUND_HALF_UP
 
