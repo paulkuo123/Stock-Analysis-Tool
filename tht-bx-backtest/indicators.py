@@ -55,6 +55,23 @@ def tdx_cross(a: pd.Series, b: pd.Series) -> pd.Series:
     return (a > b) & (a.shift(1) <= b.shift(1))
 
 
+def _as_bool(s: pd.Series) -> pd.Series:
+    """shift／fillna 後常變成 object；先轉成真正的 bool，避免 ~True 變成 -2。"""
+    return s.fillna(False).astype(bool)
+
+
+def _rising_edge(flag: pd.Series) -> pd.Series:
+    f = _as_bool(flag)
+    prev = _as_bool(f.shift(1))
+    return f & ~prev
+
+
+def _falling_edge(flag: pd.Series) -> pd.Series:
+    f = _as_bool(flag)
+    prev = _as_bool(f.shift(1))
+    return ~f & prev
+
+
 def tdx_barslast(cond: pd.Series) -> pd.Series:
     """BARSLAST(X)：距離上一次 X 為真的 K 棒數；當日為真則為 0。"""
     flags = cond.fillna(False).to_numpy(dtype=bool)
@@ -92,11 +109,10 @@ def compute_tht(
     bars_bearish = tdx_barslast(cross_basis_high)
     bull = bars_bullish < bars_bearish
     # 指標尚未形成（BASIS 為 NaN）時不當成綠飄帶。
-    bull = bull & basis.notna()
+    bull = (bull & basis.notna()).fillna(False).astype(bool)
 
-    prev_bull = bull.shift(1).fillna(False)
-    bull_on = bull & ~prev_bull
-    bull_off = ~bull & prev_bull
+    bull_on = _rising_edge(bull)
+    bull_off = _falling_edge(bull)
 
     return pd.DataFrame(
         {
@@ -140,10 +156,14 @@ def compute_bx(close: pd.Series, sl1: int = 5, sl2: int = 20, sl3: int = 5) -> p
     light_red = (bx < 0) & (bx >= prev)  # 負區上升
     dark_red = (bx < 0) & (bx < prev)  # 負區下降
 
-    prev_lg = light_green.shift(1).fillna(False)
-    prev_dg = dark_green.shift(1).fillna(False)
-    prev_lr = light_red.shift(1).fillna(False)
-    prev_dr = dark_red.shift(1).fillna(False)
+    prev_lg = _as_bool(light_green.shift(1))
+    prev_dg = _as_bool(dark_green.shift(1))
+    prev_lr = _as_bool(light_red.shift(1))
+    prev_dr = _as_bool(dark_red.shift(1))
+    light_green = _as_bool(light_green)
+    dark_green = _as_bool(dark_green)
+    light_red = _as_bool(light_red)
+    dark_red = _as_bool(dark_red)
 
     # 深紅→淺紅：負區內由下降轉為上升（買盤加強）
     dr_to_lr = prev_dr & light_red

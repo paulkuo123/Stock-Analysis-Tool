@@ -58,6 +58,7 @@ def run_unit_tests() -> None:
     t.test_bx_color_transition_dark_red_to_light_red()
     t.test_rsi2_bounds()
     t.test_confirm_within_and_cancel()
+    t.test_bull_on_is_pulse_not_state()
     print("單元測試通過。")
 
 
@@ -135,30 +136,55 @@ def num(x, nd=2) -> str:
     return f"{x:.{nd}f}"
 
 
-def pick_recommend(metrics: pd.DataFrame) -> pd.Series:
+def pick_recommend(metrics: pd.DataFrame) -> dict:
     """公開、可重跑的建議規則（樣本內、單一標的，不是預測）。
 
-    1. 排除 Buy&Hold
-    2. 五年內至少 8 筆交易（太少沒有統計意義就放寬到 5、再放寬到全部）
-    3. 在「總報酬不低於同組中位數、且 MaxDD 不是最差三分之一」裡頭挑 Sharpe
-    4. 若篩完為空，改挑 Calmar，再不行挑 Sharpe
+    overall：全部策略（不含 B&H）裡，交易次數足夠者挑 Sharpe。
+    pairing：只看「THT 配 BX」組（C／D／含 BX 的 E），用來回答「怎麼搭」。
     """
-    cand = metrics[metrics["id"] != "F"].copy()
-    for min_tr in (8, 5, 1):
-        sub = cand[cand["n_trades"] >= min_tr]
-        if len(sub):
-            cand = sub
-            break
-    if cand.empty:
-        return metrics.iloc[0]
-    med_ret = cand["total_return"].median()
-    dd_cut = cand["maxdd"].quantile(0.33)  # MaxDD 為負，quantile 0.33 較差
-    pool = cand[(cand["total_return"] >= med_ret) | (cand["sharpe"] >= cand["sharpe"].median())]
-    pool = pool[pool["maxdd"] >= dd_cut] if len(pool) else cand
-    if pool.empty:
+
+    def rank(cand: pd.DataFrame) -> pd.Series:
+        if cand.empty:
+            raise ValueError("沒有可排名的組合")
         pool = cand
-    pool = pool.sort_values(["sharpe", "calmar", "total_return"], ascending=False)
-    return pool.iloc[0]
+        for min_tr in (8, 5, 1):
+            sub = cand[cand["n_trades"] >= min_tr]
+            if len(sub):
+                pool = sub
+                break
+        med_ret = pool["total_return"].median()
+        dd_cut = pool["maxdd"].quantile(0.33)
+        filt = pool[(pool["total_return"] >= med_ret) | (pool["sharpe"] >= pool["sharpe"].median())]
+        filt = filt[filt["maxdd"] >= dd_cut] if len(filt) else pool
+        if filt.empty:
+            filt = pool
+        filt = filt.sort_values(["sharpe", "calmar", "total_return"], ascending=False, na_position="last")
+        return filt.iloc[0]
+
+    ex_bh = metrics[metrics["id"] != "F"].copy()
+    overall = rank(ex_bh)
+    mix_ids = {
+        "C1",
+        "C3",
+        "C5",
+        "C_PRE3",
+        "C_PRE5",
+        "C_BXPOS",
+        "C3D2",
+        "C5D2",
+        "D1",
+        "D2",
+        "D3",
+        "E_C3_RSI70",
+        "E_C3_RSI70_D2",
+        "E_C5_RSI70_D2",
+        "E_D2_RSI70",
+        "E_D3_RSI70",
+    }
+    mix = metrics[metrics["id"].isin(mix_ids)].copy()
+    pairing = rank(mix)
+    tht_only = metrics[metrics["id"] == "A"].iloc[0]
+    return {"overall": overall, "pairing": pairing, "tht_only": tht_only}
 
 
 def plot_equity(curves: pd.DataFrame, title: str, path: Path) -> None:
@@ -261,6 +287,35 @@ def md_table(metrics: pd.DataFrame) -> str:
     return "\n".join(lines)
 
 
+def _rules_zh(combo_id: str) -> str:
+    rules = {
+        "A": "綠飄帶（BULL 0→1）進，飄帶轉紅（BULL 1→0）出。",
+        "B1": "BX 深紅→淺紅進，深綠→淺綠出（SPEC 字面）。",
+        "B2": "BX 深紅→淺紅進，淺綠→深綠（正區轉弱）出。",
+        "B3": "BX 由負轉正進，由正轉負出（零軸，不看四色）。",
+        "B4": "BX 深紅→淺紅進，跌破零軸出。",
+        "C1": "綠飄帶當根須同時出現深紅→淺紅才進；BULL 轉假出。",
+        "C3": "綠飄帶後 3 根內等到深紅→淺紅才進；BULL 轉假出。",
+        "C_PRE3": "BX 深紅→淺紅後 3 根內出現綠飄帶才進；BULL 轉假出。",
+        "C_PRE5": "BX 深紅→淺紅後 5 根內出現綠飄帶才進；BULL 轉假出。",
+        "C_BXPOS": "綠飄帶且當根 BX 已在正區才進；BULL 轉假出。",
+        "E_D3_RSI70": "綠飄帶且 RSI2<70 進；BX 跌破零軸或 BULL 轉紅出。",
+        "D1": "綠飄帶進；深綠→淺綠或 BULL 轉紅出。",
+        "D2": "綠飄帶進；淺綠→深綠或 BULL 轉紅出。",
+        "D3": "綠飄帶進；BX 跌破零軸或 BULL 轉紅出。",
+        "C3D2": "綠飄帶後 3 根內深紅→淺紅才進；淺綠→深綠或 BULL 轉紅出。",
+        "C5D2": "綠飄帶後 5 根內深紅→淺紅才進；淺綠→深綠或 BULL 轉紅出。",
+        "E_A_RSI70": "綠飄帶且 RSI2<70 進；BULL 轉假出。",
+        "E_C3_RSI70": "綠飄帶後 3 根內深紅→淺紅且 RSI2<70 進；BULL 轉假出。",
+        "E_C3_RSI70_D2": "綠飄帶後 3 根內深紅→淺紅且 RSI2<70 進；轉弱或轉紅出。",
+        "E_C5_RSI70_D2": "綠飄帶後 5 根內深紅→淺紅且 RSI2<70 進；轉弱或轉紅出。",
+        "E_A_RSI30_70": "綠飄帶且 RSI2 在 30–70 進；BULL 轉假出。",
+        "E_D2_RSI70": "綠飄帶且 RSI2<70 進；淺綠→深綠或 BULL 轉紅出。",
+        "F": "分析區間開盤買進、期末收盤賣出。",
+    }
+    return rules.get(combo_id, combo_id)
+
+
 def write_report(
     path: Path,
     ticker: str,
@@ -273,6 +328,8 @@ def write_report(
     metrics: pd.DataFrame,
     rec: pd.Series,
     rec_trades: pd.DataFrame,
+    overall: pd.Series | None = None,
+    facts: dict | None = None,
 ) -> None:
     rec_id = rec["id"]
     bh = metrics[metrics["id"] == "F"].iloc[0]
@@ -280,9 +337,28 @@ def write_report(
     b1 = metrics[metrics["id"] == "B1"].iloc[0]
     b2 = metrics[metrics["id"] == "B2"].iloc[0]
     b3 = metrics[metrics["id"] == "B3"].iloc[0]
+    if overall is None:
+        overall = rec
+    facts = facts or {}
+    on_n = facts.get("bull_on_n", "—")
+    on_pos = facts.get("bull_on_bx_pos", "—")
+    on_neg = facts.get("bull_on_bx_neg", "—")
+    on_rsi70 = facts.get("bull_on_rsi70", "—")
 
-    def row(i):
-        return metrics[metrics["id"] == i].iloc[0]
+    if overall["id"] == rec_id:
+        headline = (
+            f"**建議組合：「{rec['name_zh']}」（{rec_id}）。** "
+            f"{_rules_zh(rec_id)}"
+        )
+    else:
+        headline = (
+            f"**若問這五年誰數字最好：是「{overall['name_zh']}」（{overall['id']}），"
+            f"總報酬 {pct(overall['total_return'])}、年化 {pct(overall['ann_return'])}、"
+            f"最大回撤 {pct(overall['maxdd'])}、Sharpe {num(overall['sharpe'])}。**\n\n"
+            f"**若問 THT 怎麼配 BX：建議「{rec['name_zh']}」（{rec_id}）。** "
+            f"{_rules_zh(rec_id)} "
+            "「綠飄帶之後硬等深紅→淺紅才准進」在這段 TSLA 很容易漏掉波段，不建議當預設。"
+        )
 
     text = f"""# TSLA 日K 約五年：THT＋BX（可選 RSI2）組合評估
 
@@ -290,15 +366,11 @@ def write_report(
 
 ## 一句話建議
 
-**建議先用「{rec['name_zh']}」（代號 {rec_id}）：綠飄帶出現後，用 BX 負區「深紅→淺紅」（買盤轉強）當確認，進出場都等隔日開盤；出場看正區轉弱或綠飄帶失效。**
+{headline}
 
-此組合在本次回測：總報酬 {pct(rec['total_return'])}、年化 {pct(rec['ann_return'])}、最大回撤 {pct(rec['maxdd'])}、Sharpe {num(rec['sharpe'])}、勝率 {pct(rec['win_rate'])}、交易 {int(rec['n_trades'])} 筆、平均持有 {num(rec['avg_hold_days'], 1)} 個交易日。同期 Buy&Hold 總報酬 {pct(bh['total_return'])}、最大回撤 {pct(bh['maxdd'])}，超額 {pct(rec['excess_vs_bh'])}。
+建議搭配（{rec_id}）本次回測：總報酬 {pct(rec['total_return'])}、年化 {pct(rec['ann_return'])}、最大回撤 {pct(rec['maxdd'])}、Sharpe {num(rec['sharpe'])}、勝率 {pct(rec['win_rate'])}、交易 {int(rec['n_trades'])} 筆、平均持有 {num(rec['avg_hold_days'], 1)} 個交易日。同期 Buy&Hold 總報酬 {pct(bh['total_return'])}、最大回撤 {pct(bh['maxdd'])}，超額 {pct(rec['excess_vs_bh'])}。僅 THT（A）總報酬 {pct(a['total_return'])}、Sharpe {num(a['sharpe'])}。
 
-若你只想記規則、不想記代號：
-
-1. **進場**：THT 的 BULL 由假轉真（綠色飄帶出現）之後，**含當根共 N 根內**等到 BX 在負區由深紅轉淺紅，且 RSI2（P2=12）未超買（<70，視組合而定）。
-2. **出場**：BULL 轉假（飄帶轉紅），或 BX 在正區由淺綠轉深綠（斜率轉弱）。哪個先到算哪個。
-3. **執行**：訊號收盤成立，**次一交易日開盤**進出；單邊成本 0.05%。
+進出場都是**訊號收盤成立、次一交易日開盤**成交；單邊成本 0.05%。
 
 ---
 
@@ -390,35 +462,39 @@ BX 本質是「短均減長均」的變化速度，再做成 0 軸附近的震�
 
 - **字面著色（B1，深綠→淺綠作出場）**：總報酬 {pct(b1['total_return'])}，回撤 {pct(b1['maxdd'])}，交易 {int(b1['n_trades'])} 筆。若出場剛好是「正區再轉強」，容易賣太早或賣在不該賣的地方。
 - **對照轉弱（B2，淺綠→深綠出）**：總報酬 {pct(b2['total_return'])}，回撤 {pct(b2['maxdd'])}，交易 {int(b2['n_trades'])} 筆。這組比較符合「買盤加強進、力道轉弱出」。
-- **零軸對照（B3）**：總報酬 {pct(b3['total_return'])}，回撤 {pct(b3['maxdd'])}，交易 {int(b3['n_trades'])} 筆。進出較少、比較像小型趨勢濾網。
+- **零軸對照（B3）**：總報酬 {pct(b3['total_return'])}，回撤 {pct(b3['maxdd'])}，交易 {int(b3['n_trades'])} 筆。這五年**數字最好**：比綠飄帶更勤進出，回撤明顯小於 Buy&Hold。
 
-**BX 單獨用，在這段 TSLA 上通常不如「THT 定方向、BX 當確認／出場」來得穩。** 深紅→淺紅比較適合當「已經偏多之後的加分」，不適合當唯一進場。
+**四色 BX 單獨用（B1／B2）在這段 TSLA 不好用**；真正強的是「負轉正／正轉負」這條零軸規則。深紅→淺紅比較適合解釋盤面，不適合當唯一進場。
 
 ### C. 綠飄帶之後，等 BX 深紅→淺紅才進
 
-N=1 最嚴（必須同一根同時發生），筆數會最少、漏掉不少趨勢。N=3／N=5 比較實用：給買盤一點時間跟上飄帶。  
-出場若仍只用 BULL 轉紅，會抱滿整段綠飄帶，回撤跟 A 接近，但進場品質通常較好。
+SPEC 字面是「綠飄帶**之後** N 根內再等負區轉強」。本次 N=1／3／5 **全部 0 筆成交**。  
+{on_n} 次綠飄帶裡，當根 BX 已在正區 {on_pos} 次、還在負區只有 {on_neg} 次；後面 5 根內也等不到「深紅→淺紅」。
+
+白話：綠飄帶出現時，買盤多半**已經翻上來了**，再回頭等負區轉強，條件幾乎不會發生，**不建議這樣搭**。  
+反過來「先深紅→淺紅再等綠飄帶」（C_PRE3／C_PRE5）或「綠飄帶且 BX≥0」（C_BXPOS）雖然有成交，但這段資料裡績效普通或更差，不是主角。
 
 ### D. 綠飄帶進，BX 負責出場
 
-這組在測「要不要讓 BX 提早下車」。字面「深綠→淺綠」當出場（D1）請當假設組；實務上較合理的是 D2（正區轉弱）或 D3（跌破 0 軸）。  
-若出場過敏，會把一段大波段切成多筆小賺，總報酬可能明顯低於 A，但回撤與持有天數會下降。
+這組在測「要不要讓 BX 提早下車」。字面「深綠→淺綠」當出場（D1）請當假設組。  
+本次結果：**D3（跌破 0 軸或飄帶轉紅）明顯最好**；D1 次之；D2（正區斜率轉弱）會切太早，總報酬甚至低於只做 THT。綠飄帶進場後，用 BX 零軸當「趨勢還沒壞」比用四色斜率當出場更禁得起這段 TSLA。
 
 ### E. 再加上 RSI2 未超買
 
-RSI2<70 主要是擋「已經追很熱才轉綠」的進場。對 TSLA 這種愛直上的股票，濾網有時會錯過最猛的一段，有時能避開高潮區的假突破。  
-本次建議會優先看「確認進場 + 未超買 + 轉弱或轉紅出場」有沒有比裸 THT 更平衡。
+RSI2<70 主要是擋「已經追很熱才轉綠」的進場。本次綠飄帶當根 RSI2≥70 的次數是 {on_rsi70}，所以 E 組裡很多濾網等於沒濾到，績效會跟沒加 RSI 的版本幾乎一樣。
 
 ### 建議組合為什麼是 {rec_id}
 
-挑選規則寫在腳本 `pick_recommend()`：先要求交易次數不要少到沒意義，再在報酬／Sharpe 與回撤之間取較能睡得著的組合，**沒有對未來做優化搜尋**。
+挑選分兩層，都寫在 `pick_recommend()`：**沒有對未來做參數搜尋**。
 
-- 建議：{rec['name_zh']}
-- 總報酬 {pct(rec['total_return'])}（相對 B&H {pct(rec['excess_vs_bh'])}）
-- 年化 {pct(rec['ann_return'])}；最大回撤 {pct(rec['maxdd'])}（B&H 為 {pct(bh['maxdd'])}）
+1. **overall（數字最好）**：不含 Buy&Hold，交易次數夠的組合裡頭看 Sharpe／回撤。本次是 **{overall['id']}** {overall['name_zh']}（總報酬 {pct(overall['total_return'])}、Sharpe {num(overall['sharpe'])}）。
+2. **pairing（怎麼搭 THT＋BX）**：只在 C／D／含 BX 的 E 裡頭挑。本次是 **{rec_id}** {rec['name_zh']}。規則：{_rules_zh(rec_id)}
+
+- 搭配組總報酬 {pct(rec['total_return'])}（相對 B&H {pct(rec['excess_vs_bh'])}）
+- 年化 {pct(rec['ann_return'])}；最大回撤 {pct(rec['maxdd'])}（B&H 為 {pct(bh['maxdd'])}，僅 THT 為 {pct(a['maxdd'])}）
 - Sharpe {num(rec['sharpe'])}；勝率 {pct(rec['win_rate'])}；{int(rec['n_trades'])} 筆；平均持有 {num(rec['avg_hold_days'], 1)} 天
 
-**請不要因為這組在這五年數字最好，就認定它以後最好。** 換一個五年、換一檔股票，排名常常會倒過來。
+**請不要因為某組在這五年數字最好，就認定它以後最好。** 換一個五年、換一檔股票，排名常常會倒過來。
 
 ---
 
@@ -533,9 +609,35 @@ def main() -> int:
     print(f"分析區間實際：{actual_start} ～ {actual_end}（{n_bars} 根）")
 
     window_df = df.loc[analysis].copy()
-    window_df[["open", "high", "low", "close", "volume", "basis", "thup", "thdn", "bull", "bx", "color", "rsi2"]].to_csv(
-        RESULT_DIR / "indicators.csv", encoding="utf-8-sig"
-    )
+    ind_cols = [
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+        "basis",
+        "thup",
+        "thdn",
+        "bull",
+        "bull_on",
+        "bull_off",
+        "bx",
+        "color",
+        "dr_to_lr",
+        "dg_to_lg",
+        "lg_to_dg",
+        "neg_to_pos",
+        "pos_to_neg",
+        "rsi2",
+    ]
+    window_df[ind_cols].to_csv(RESULT_DIR / "indicators.csv", encoding="utf-8-sig")
+
+    facts = {
+        "bull_on_n": int(window_df["bull_on"].sum()),
+        "bull_on_bx_pos": int((window_df["bull_on"] & (window_df["bx"] >= 0)).sum()),
+        "bull_on_bx_neg": int((window_df["bull_on"] & (window_df["bx"] < 0)).sum()),
+        "bull_on_rsi70": int((window_df["bull_on"] & (window_df["rsi2"] >= 70)).sum()),
+    }
 
     combos = build_combos()
     results = {}
@@ -557,7 +659,6 @@ def main() -> int:
               f"MaxDD={res.metrics['maxdd']*100:7.2f}%  "
               f"筆數={res.metrics['n_trades']:3d}  Sharpe={res.metrics['sharpe']}")
 
-    spec_by_id = {c.id: c for c in combos}
     rows = []
     for spec in combos:
         m = dict(results[spec.id].metrics)
@@ -596,16 +697,19 @@ def main() -> int:
             RESULT_DIR / f"trades_{spec.id}.csv", index=False, encoding="utf-8-sig"
         )
 
-    rec = pick_recommend(metrics)
+    rec_picks = pick_recommend(metrics)
+    rec = rec_picks["pairing"]
+    overall = rec_picks["overall"]
     rec_id = rec["id"]
     rec_trades = trades_to_frame(results[rec_id].trades)
-    print(f"建議組合：{rec_id} {rec['name_zh']}")
+    print(f"建議搭配：{rec_id} {rec['name_zh']}")
+    print(f"數字最佳：{overall['id']} {overall['name_zh']}")
 
     # 圖：全部（欄位用代號＋短名）
     label_map = {r["id"]: f"{r['id']}:{r['name_zh'][:16]}" for _, r in metrics.iterrows()}
     plot_df = eq_df.loc[analysis].rename(columns=label_map)
     plot_equity(plot_df, f"{args.ticker} 各組合權益（含 Buy&Hold）", FIG_DIR / "equity_all.png")
-    core_ids = ["A", "B1", "B2", "B3", "C3", "C5", "D2", "E_C3_RSI70_D2", "F", rec_id]
+    core_ids = ["A", "B1", "B2", "B3", "C3", "C5", "D1", "D2", "E_C3_RSI70_D2", "F", rec_id, overall["id"]]
     core_ids = list(dict.fromkeys(core_ids))
     core = eq_df.loc[analysis, [c for c in core_ids if c in eq_df.columns]].rename(columns=label_map)
     plot_equity(core, f"{args.ticker} 核心組合比較", FIG_DIR / "equity_core.png")
@@ -624,6 +728,8 @@ def main() -> int:
         metrics=metrics,
         rec=rec,
         rec_trades=rec_trades,
+        overall=overall,
+        facts=facts,
     )
 
     # 也寫一份精簡 README
@@ -633,7 +739,7 @@ def main() -> int:
 
 ## 一句話
 
-建議組合：**{rec['name_zh']}**（`{rec_id}`）。本次總報酬 {pct(rec['total_return'])}、年化 {pct(rec['ann_return'])}、最大回撤 {pct(rec['maxdd'])}、Sharpe {num(rec['sharpe'])}。同期 Buy&Hold 總報酬 {pct(bh_total)}。**不保證獲利。**
+建議組合：**{rec['name_zh']}**（`{rec_id}`）。本次總報酬 {pct(rec['total_return'])}、年化 {pct(rec['ann_return'])}、最大回撤 {pct(rec['maxdd'])}、Sharpe {num(rec['sharpe'])}。同期 Buy&Hold 總報酬 {pct(bh_total)}。數字最好是 **{overall['name_zh']}**（`{overall['id']}`）。**不保證獲利。**
 
 細節、假設與完整績效表見 [report.md](report.md)。
 

@@ -73,6 +73,27 @@ def test_rsi2_bounds():
     assert valid.iloc[-1] > 90
 
 
+def test_bull_on_is_pulse_not_state():
+    """連續多根 BULL=True 時，bull_on 只能在 0→1 那一根。"""
+    n = 80
+    idx = pd.date_range("2020-01-01", periods=n, freq="B")
+    close = pd.Series(np.linspace(10, 40, n), index=idx)
+    open_ = close - 0.05
+    high = close + 0.4
+    low = close - 0.2
+    tht = compute_tht(open_, high, low, close)
+    bull = tht["bull"].astype(bool)
+    on = tht["bull_on"].astype(bool)
+    off = tht["bull_off"].astype(bool)
+    prev = bull.shift(1).fillna(False).astype(bool)
+    # 已在綠飄帶中，不該再亮進場脈衝
+    assert not bool((on & prev).any())
+    assert not bool((off & ~prev).any())
+    assert int(on.sum()) == int((bull & ~prev).sum())
+    if bull.any():
+        assert int(on.sum()) >= 1
+
+
 def test_confirm_within_and_cancel():
     idx = pd.RangeIndex(10)
     trigger = pd.Series([0, 1, 0, 0, 0, 1, 0, 0, 0, 0], index=idx, dtype=bool)
@@ -98,6 +119,7 @@ if __name__ == "__main__":
         test_bull_flips_on_more_recent_cross,
         test_bx_color_transition_dark_red_to_light_red,
         test_rsi2_bounds,
+        test_bull_on_is_pulse_not_state,
         test_confirm_within_and_cancel,
     ]
     for fn in tests:
