@@ -36,3 +36,18 @@ python run_backtest.py --force-download   # 重新抓行情
 - BX 只用 SL1=5, SL2=20, SL3=5
 - RSI 只用 P2=12 的 SMA 型 RSI2
 - THT 進場：BULL 0→1（綠色飄帶）
+
+## v2：更好打？變體＋經典對照
+
+一鍵重跑（不覆蓋 v1 的 `results/combo_metrics.csv`）：
+
+```bash
+python run_backtest_v2.py
+python test_v2.py
+```
+
+報告：[report-v2-better-strategies.md](report-v2-better-strategies.md)。產出在 `results/v2/`。
+
+D3 基準勝率 45.83%、MaxDD -33.09%、總報酬 171.53%。
+THT 根基較好打候選：**V_CONF23**（勝率 55.56%）。
+經典對照裡最不丟臉的是 **海龜簡化：20 日高突破進／10 日低出**（`CL_DONCHIAN`），仍不如 V_CONF23。**不保證獲利。**
