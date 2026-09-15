@@ -62,4 +62,4 @@ python test_v3.py
 ```
 
 報告：[report-v3-multi-ticker.md](report-v3-multi-ticker.md)。產出在 `results/v3/`。
-**不保證獲利，不要為各標的重調主參數。**
+成功回測 7 檔，其中 1 檔總報酬打贏各自的 Buy&Hold。**不保證獲利，不要為各標的重調主參數。**

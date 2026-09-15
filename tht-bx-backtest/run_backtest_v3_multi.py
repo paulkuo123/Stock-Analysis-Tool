@@ -192,15 +192,26 @@ def feels_better_row(v: dict, bh: dict) -> bool:
     return float(v["maxdd"]) > float(bh["maxdd"])
 
 
+CN_FONT = None
+
+
 def setup_font() -> None:
+    global CN_FONT
     if Path(FONT_PATH).exists():
         fm.fontManager.addfont(FONT_PATH)
-        plt.rcParams["font.sans-serif"] = ["WenQuanYi Micro Hei", "Noto Sans CJK TC", "sans-serif"]
+        CN_FONT = fm.FontProperties(fname=FONT_PATH)
+        plt.rcParams["font.sans-serif"] = ["WenQuanYi Micro Hei", "DejaVu Sans", "sans-serif"]
     plt.rcParams["axes.unicode_minus"] = False
     plt.rcParams["figure.dpi"] = 120
     plt.rcParams["savefig.dpi"] = 140
     plt.rcParams["axes.grid"] = True
     plt.rcParams["grid.alpha"] = 0.25
+
+
+def _fp(**kwargs):
+    if CN_FONT is None:
+        return kwargs
+    return {**kwargs, "fontproperties": CN_FONT}
 
 
 def md_summary_table(metrics: pd.DataFrame) -> str:
@@ -388,6 +399,33 @@ def write_report(
             f"{feel}（勝率 {pct(r['win_rate'])}、MaxDD {pct(r['maxdd'])} vs B&H {pct(r['bh_maxdd'])}、{int(r['n_trades'])} 筆）"
         )
 
+    # 白話解讀：這五年很多標的是「抱著就贏」，時間出場會把大波段剪掉。
+    strong_bh = ok[ok["bh_total_return"] >= 2.0].sort_values("bh_total_return", ascending=False)
+    close_bh = ok[(ok["ticker"] != "TSLA") & (ok["excess_vs_bh"].abs() <= 0.15)]
+    wr_only_tsla = (ok[ok["ticker"] != "TSLA"]["win_rate"] < MIN_WIN_RATE_FEEL).all() if n_others else False
+    strong_txt = "、".join(
+        f"{r['ticker']}（B&H {pct(r['bh_total_return'])}，策略只剩 {pct(r['total_return'])}）"
+        for _, r in strong_bh.iterrows()
+    ) or "沒有"
+    if len(close_bh):
+        close_txt = "、".join(f"{r['ticker']}（超額 {pct(r['excess_vs_bh'])}）" for _, r in close_bh.iterrows())
+        close_block = f"最接近打平的是 {close_txt}：報酬差不多，回撤通常比較淺，但勝率仍偏低，不算「比較好打」。"
+    else:
+        close_block = "驗證標的沒有接近打平 Buy&Hold 的；不是小輸，是趨勢年被出場規則剪掉一大段。"
+    wr_block = (
+        "除了 TSLA，其餘勝率全部低於 50%。"
+        if wr_only_tsla
+        else "驗證標的裡也有勝率過 50% 的，但還要看回撤與是否打贏 B&H。"
+    )
+    read_plain = (
+        f"這五年半導體／科技很多是「抱著就贏」：{strong_txt}。"
+        f"V_CONF23 用 BX 跌破零或飄帶轉紅就下車，強勢年會反覆被洗出去，總帳很容易輸給傻抱。"
+        f"{close_block}{wr_block}"
+        f"TSLA 同期 Buy&Hold 只有 {pct(tsla.iloc[0]['bh_total_return']) if len(tsla) else '—'}、"
+        f"MaxDD {pct(tsla.iloc[0]['bh_maxdd']) if len(tsla) else '—'}，時間進出才顯得特別厲害；"
+        f"換到本身就大漲的標的，同一套規則沒有複製出「又賺比較多、又比較好打」。"
+    )
+
     text = f"""# 多標的驗證：V_CONF23 是不是只會打 TSLA？
 
 > 固定策略、固定主參數、同一段約五年日K。用來回答「v2 在 TSLA 上看起來比較好打，換標的還在不在」。**不是獲利保證**，也沒有為各標的重調 THT／BX。
@@ -411,6 +449,10 @@ def write_report(
 「打贏」只看總報酬是否高於同期 Buy&Hold。「比較好打」寫死成：至少 {MIN_TRADES_FEEL} 筆、勝率 ≥ {MIN_WIN_RATE_FEEL:.0%}，且 MaxDD 比該標的自己的 Buy&Hold 淺。這是體感門檻，不是再優化。
 
 {chr(10).join(beat_detail)}
+
+### 白話怎麼讀這張表
+
+{read_plain}
 
 ### 總表
 
@@ -508,9 +550,9 @@ def plot_all_equity(runs: list[TickerRun], path: Path) -> None:
             continue
         lw = 2.4 if run.ticker == "TSLA" else 1.2
         ax.plot(run.equity_v.index, run.equity_v.values, label=f"{run.ticker} V_CONF23", linewidth=lw, alpha=0.9)
-    ax.set_title("V_CONF23 各標的權益（起始=1）")
-    ax.set_ylabel("權益")
-    ax.legend(loc="upper left", fontsize=8, ncol=2, framealpha=0.9)
+    ax.set_title("V_CONF23 各標的權益（起始=1）", **_fp())
+    ax.set_ylabel("權益", **_fp())
+    ax.legend(loc="upper left", fontsize=8, ncol=2, framealpha=0.9, **({"prop": CN_FONT} if CN_FONT else {}))
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m"))
     fig.autofmt_xdate()
     fig.tight_layout()
@@ -522,9 +564,9 @@ def plot_ticker_equity(run: TickerRun, path: Path) -> None:
     fig, ax = plt.subplots(figsize=(10.5, 5.2))
     ax.plot(run.equity_v.index, run.equity_v.values, label="V_CONF23", linewidth=2.0, color="#2ca02c")
     ax.plot(run.equity_bh.index, run.equity_bh.values, label="Buy&Hold", linewidth=1.6, color="#7f7f7f")
-    ax.set_title(f"{run.ticker}：V_CONF23 vs Buy&Hold")
-    ax.set_ylabel("權益（起始=1）")
-    ax.legend(loc="upper left")
+    ax.set_title(f"{run.ticker}：V_CONF23 vs Buy&Hold", **_fp())
+    ax.set_ylabel("權益（起始=1）", **_fp())
+    ax.legend(loc="upper left", **({"prop": CN_FONT} if CN_FONT else {}))
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m"))
     fig.autofmt_xdate()
     fig.tight_layout()
@@ -543,10 +585,10 @@ def plot_return_bars(metrics: pd.DataFrame, path: Path) -> None:
     ax.bar(x + w / 2, ok["bh_total_return"] * 100, width=w, label="Buy&Hold", color="#7f7f7f")
     ax.set_xticks(x)
     ax.set_xticklabels(ok["ticker"].tolist())
-    ax.set_ylabel("總報酬 %")
-    ax.set_title("總報酬：V_CONF23 vs Buy&Hold")
+    ax.set_ylabel("總報酬 %", **_fp())
+    ax.set_title("總報酬：V_CONF23 vs Buy&Hold", **_fp())
     ax.axhline(0, color="#aaa", linewidth=0.6)
-    ax.legend()
+    ax.legend(**({"prop": CN_FONT} if CN_FONT else {}))
     fig.tight_layout()
     fig.savefig(path)
     plt.close(fig)
@@ -562,10 +604,10 @@ def plot_scatter(metrics: pd.DataFrame, path: Path) -> None:
     for _, r in ok.iterrows():
         ax.annotate(r["ticker"], (r["win_rate"] * 100, r["maxdd"] * 100), fontsize=9, xytext=(4, 4), textcoords="offset points")
     ax.axvline(MIN_WIN_RATE_FEEL * 100, color="#888", linestyle="--", linewidth=0.8, label=f"勝率 {MIN_WIN_RATE_FEEL:.0%}")
-    ax.set_xlabel("勝率 %（愈右愈舒服）")
-    ax.set_ylabel("MaxDD %（愈上愈不痛）")
-    ax.set_title("V_CONF23：勝率 vs 最大回撤（綠=打贏 B&H）")
-    ax.legend(loc="best")
+    ax.set_xlabel("勝率 %（愈右愈舒服）", **_fp())
+    ax.set_ylabel("MaxDD %（愈上愈不痛）", **_fp())
+    ax.set_title("V_CONF23：勝率 vs 最大回撤（綠=打贏 B&H）", **_fp())
+    ax.legend(loc="best", **({"prop": CN_FONT} if CN_FONT else {}))
     fig.tight_layout()
     fig.savefig(path)
     plt.close(fig)
