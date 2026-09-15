@@ -51,3 +51,15 @@ python test_v2.py
 D3 基準勝率 45.83%、MaxDD -33.09%、總報酬 171.53%。
 THT 根基較好打候選：**V_CONF23**（勝率 55.56%）。
 經典對照裡最不丟臉的是 **海龜簡化：20 日高突破進／10 日低出**（`CL_DONCHIAN`），仍不如 V_CONF23。**不保證獲利。**
+
+## v3：V_CONF23 多標的驗證
+
+固定 **V_CONF23**（不改 THT N=33／TW=0.18、BX SL1=5 SL2=20 SL3=5），測 TSLA＋MU／TSM／NVDA／BTC-USD／QQQ／SMH。
+
+```bash
+python run_backtest_v3_multi.py
+python test_v3.py
+```
+
+報告：[report-v3-multi-ticker.md](report-v3-multi-ticker.md)。產出在 `results/v3/`。
+成功回測 7 檔，其中 1 檔總報酬打贏各自的 Buy&Hold。**不保證獲利，不要為各標的重調主參數。**
