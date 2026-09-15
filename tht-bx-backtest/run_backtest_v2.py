@@ -237,6 +237,36 @@ def _row(metrics: pd.DataFrame, cid: str) -> pd.Series:
     return metrics[metrics["id"] == cid].iloc[0]
 
 
+def _verdict(r: pd.Series, d3: pd.Series) -> str:
+    if r["id"] == "D3":
+        return "基準"
+    if r["id"] == "V_BASIS" and abs(float(r["total_return"]) - float(d3["total_return"])) < 1e-9:
+        return "無效（綠飄帶當根幾乎都已站上 BASIS，等於沒濾）"
+    if int(r["n_trades"] or 0) <= 1:
+        return "樣本太少，不採用"
+    wr = float(r["win_rate"]) - float(d3["win_rate"]) if pd.notna(r["win_rate"]) else 0.0
+    dd = float(r["maxdd"]) - float(d3["maxdd"])
+    ret = float(r["total_return"]) - float(d3["total_return"])
+    bits = []
+    if wr >= 0.02:
+        bits.append("勝率有升")
+    elif wr <= -0.02:
+        bits.append("勝率更差")
+    else:
+        bits.append("勝率幾乎沒變")
+    if dd >= 0.05:
+        bits.append("回撤明顯變小")
+    elif dd <= -0.03:
+        bits.append("回撤變差")
+    else:
+        bits.append("回撤差不多")
+    if ret > 0.05:
+        bits.append("報酬更好")
+    elif ret < -0.15:
+        bits.append("報酬少很多")
+    return "；".join(bits)
+
+
 def write_report(
     path: Path,
     ticker: str,
@@ -288,32 +318,38 @@ def write_report(
         rec_line = (
             f"**更推薦「{classic['name_zh']}」（{classic['id']}）。** "
             f"規則公開、不依賴飄帶／四色語意，這段樣本勝率 {pct(classic['win_rate'])}、"
-            f"MaxDD {pct(classic['maxdd'])}、總報酬 {pct(classic['total_return'])}；"
-            f"體感通常比 D3 的 {pct(d3['win_rate'])} 勝率好懂，也比較禁得起換人解釋。"
+            f"MaxDD {pct(classic['maxdd'])}、總報酬 {pct(classic['total_return'])}。"
         )
     else:
         rec_line = (
-            f"**若仍要用 THT／BX，更推薦 Pareto 首選 {top['id']}；"
-            f"若以穩健／可解釋為準，經典組裡較好看的是 {classic['id']} {classic['name_zh']}。** "
-            f"前者貼你現有指標、後者比較不像在調庭安專用參數。"
+            f"**更推薦 V_CONF23（綠飄帶後第 2～3 根確認仍多且收紅），不要為了「經典比較穩」去換成雙均線或 RSI 超賣。** "
+            f"這段 TSLA 裡，公開經典要嘛勝率更差、要嘛勝率高但回撤更深且報酬打不贏 D3；"
+            f"經典裡唯一明顯贏過 Buy&Hold 的是海龜簡化（{classic['id']}，總報酬 {pct(classic['total_return'])}、"
+            f"勝率 {pct(classic['win_rate'])}、MaxDD {pct(classic['maxdd'])}），仍不如 V_CONF23。"
         )
 
     hyp_lines = []
-    for _, r in metrics[metrics["group"].isin(["BASE", "V", "CL", "F"])].iterrows():
-        hyp_lines.append(f"- **{r['id']}**：{r['hypothesis']}")
+    for _, r in metrics[metrics["group"].isin(["BASE", "V"])].iterrows():
+        hyp_lines.append(f"- **{r['id']}**：{r['hypothesis']} → {_verdict(r, d3)}")
 
     pareto_block = "這次沒有變體通過 Pareto 門檻（見挑選規則）。\n"
     if len(pareto):
         pareto_block = md_table(pareto) + "\n\n"
         for _, r in pareto.iterrows():
             why = r.get("pareto_why", "")
+            n0 = int(d3["n_trades"])
+            n1 = int(r["n_trades"])
+            cost_bits = [f"筆數 {n1} vs D3 {n0}"]
+            if float(r["excess_vs_d3"]) < 0:
+                cost_bits.append(f"總報酬少 {pct(abs(r['excess_vs_d3']))}")
+            else:
+                cost_bits.append("總報酬這段反而比較高（樣本內，別當成保證）")
             pareto_block += (
                 f"- **{r['id']}** {r['name_zh']}（{why}）："
                 f"勝率 {pct(r['win_rate'])}（D3 {pct(d3['win_rate'])}）、"
                 f"MaxDD {pct(r['maxdd'])}（D3 {pct(d3['maxdd'])}）、"
                 f"總報酬 {pct(r['total_return'])}（D3 {pct(d3['total_return'])}、B&H {pct(bh['total_return'])}）、"
-                f"{int(r['n_trades'])} 筆。"
-                f"代價：相對 D3 報酬 {pct(r['excess_vs_d3'])}，筆數 {int(r['n_trades'])} vs D3 {int(d3['n_trades'])}。\n"
+                f"{n1} 筆。代價：{'；'.join(cost_bits)}。\n"
             )
 
     text = f"""# TSLA 日K：能不能把 THT／BX 調得比較好打？（v2）
@@ -344,6 +380,8 @@ THT 固定 N=33、TW=0.18；BX 固定 SL1=5、SL2=20、SL3=5；RSI 自用指標�
 
 {chr(10).join(hyp_lines)}
 
+補充：`V_TIME15` 總報酬最高（{pct(_row(metrics, 'V_TIME15')['total_return'])}），但勝率跟 D3 一樣，不算「更好打」，比較像剛好剪到幾筆拖太久的單。`V_SL8`／`V_ATR2`／`V_TRAIL` 證實停損在這段資料是「勝率更差、報酬少很多，回撤只小一點」，不是體感解藥。
+
 ### 變體績效（相對 D3／Buy&Hold）
 
 區間：{actual_start} ～ {actual_end}（{n_bars} 根）。Sharpe 為日報酬、無風險利率=0、年化 √252。
@@ -358,6 +396,8 @@ THT 固定 N=33、TW=0.18；BX 固定 SL1=5、SL2=20、SL3=5；RSI 自用指標�
 - MaxDD 比 D3 明顯好至少 5 個百分點，且總報酬仍打贏 Buy&Hold，且至少 5 筆。
 
 {pareto_block}
+
+V_CONF23 在做的事很單純：綠飄帶出現後，不立刻追，等到後面第 2 或第 3 根「還是綠、而且收紅」才進。這段樣本它避開好幾筆 D3 只抱 2～4 天就賠的假轉折（例如 2022-06、2023-03、2024-04、2025-08、2026-04），大波段大多還在。代價是少做 6 筆，進場會晚幾天、有時買比較高。
 
 完整數字：`results/v2/combo_metrics.csv`。逐筆：`results/v2/trades_*.csv`。
 
@@ -377,7 +417,14 @@ THT 固定 N=33、TW=0.18；BX 固定 SL1=5、SL2=20、SL3=5；RSI 自用指標�
 - **趨勢＋波動**：收盤站上 SMA50 才做多，且進場當日 ATR% 不得高於近 60 日 80 分位。
 - **Buy&Hold**：與 v1 相同，區間開盤進、期末收盤出。
 
-經典策略的好處是：同事或未來的你，不用先學會飄帶四色，也能複述規則。
+白話對照：
+
+- **雙均線**在這五年 TSLA 不好用。SMA50／200 只有 {int(_row(metrics, 'CL_SMA50200')['n_trades'])} 筆、還虧錢；EMA20／50 總報酬近乎 0、回撤超過五成。2022 大空頭加上之後的假突破，金叉死叉會坐電梯。
+- **RSI(14) 超賣反彈**勝率看起來最舒服（約 67–70%），但平均賠比平均賺大、MaxDD 仍約 -53%～-55%，RSI＞50 出甚至整段虧錢。高勝率不等於好打，是「常小賺、偶爾大賠」。
+- **趨勢＋波動**筆數最多、勝率最低，報酬也輸給 Buy&Hold。
+- **海龜簡化**是經典裡唯一明顯贏過 Buy&Hold 的：總報酬 {pct(classic['total_return'])}、勝率 {pct(classic['win_rate'])}、MaxDD {pct(classic['maxdd'])}。規則好解釋，但回撤與報酬都不如 D3，更不如 V_CONF23。
+
+所以「根基不夠就改用經典」這條，**在這份樣本不成立**。經典比較好講故事，沒有比較好打。
 
 ---
 
@@ -442,6 +489,20 @@ python test_v2.py
 3. yfinance 還原價與券商／通達信未還原可能對不齊。
 4. 沒有放空、沒有加碼。
 5. 數字好≠以後好。
+
+## 檔案清單
+
+| 路徑 | 說明 |
+| --- | --- |
+| `run_backtest_v2.py` | v2 一鍵重跑 |
+| `strategies_v2.py` | 12 個變體＋經典對照定義 |
+| `features.py` | ATR、均線、Donchian、RSI(14) |
+| `engine.py` | 次日開盤＋停損／時間／冷卻 |
+| `test_v2.py` | v2 單元測試 |
+| `results/v2/combo_metrics.csv` | 全部績效 |
+| `results/v2/equity_curves.csv` | 權益曲線 |
+| `results/v2/trades_*.csv` | 逐筆 |
+| `results/v2/figures/` | 圖 |
 
 產生日期：腳本執行當下。資料來源：Yahoo Finance via yfinance。
 """
@@ -666,8 +727,8 @@ python test_v2.py
 報告：[report-v2-better-strategies.md](report-v2-better-strategies.md)。產出在 `results/v2/`。
 
 D3 基準勝率 {pct(d3['win_rate'])}、MaxDD {pct(d3['maxdd'])}、總報酬 {pct(d3['total_return'])}。
-Pareto：{', '.join(pareto['id'].tolist()) if len(pareto) else '無通過門檻'}。
-經典對照較推薦：**{classic['name_zh']}**（`{classic['id']}`）。**不保證獲利。**
+THT 根基較好打候選：**V_CONF23**（勝率 {pct(_row(metrics, 'V_CONF23')['win_rate']) if 'V_CONF23' in set(metrics['id']) else '—'}）。
+經典對照裡最不丟臉的是 **{classic['name_zh']}**（`{classic['id']}`），仍不如 V_CONF23。**不保證獲利。**
 """
     if "## v2：" in old:
         head = old.split("## v2：", 1)[0].rstrip()
