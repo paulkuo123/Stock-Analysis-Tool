@@ -123,6 +123,37 @@ def stitch_close(cache: pd.DataFrame, early: pd.DataFrame) -> tuple[pd.Series, s
     return close, note
 
 
+def stitch_ohlcv(cache: pd.DataFrame, early: pd.DataFrame) -> tuple[pd.DataFrame, str]:
+    """日 K 整表銜接。重疊日期用快取，早段若和快取有價差就按收盤中位數比例縮放。
+
+    十年回測的日線指標必須用到 2016 年以前的開高低收，不能只接收盤價。
+    """
+    cols = [c for c in ("open", "high", "low", "close", "volume") if c in cache.columns and c in early.columns]
+    cache = cache.sort_index()
+    early = early.sort_index()
+    overlap = cache.index.intersection(early.index)
+    note = "沒有早段行情"
+    scale = 1.0
+    early_use = early
+    if len(overlap) >= 5:
+        ratio = (cache.loc[overlap, "close"] / early.loc[overlap, "close"]).replace([np.inf, -np.inf], np.nan)
+        scale = float(ratio.median())
+        if np.isfinite(scale) and abs(scale - 1.0) > 0.002:
+            early_use = early.copy()
+            for col in ("open", "high", "low", "close"):
+                if col in early_use.columns:
+                    early_use[col] = early_use[col] * scale
+            note = f"早段行情依重疊中位數比例 {scale:.6f} 銜接快取"
+        else:
+            note = f"早段與快取重疊中位數比 {scale:.6f}，未縮放"
+    elif len(early):
+        note = "早段與快取重疊不足，未縮放"
+    early_only = early_use.loc[early_use.index < cache.index.min(), cols]
+    out = pd.concat([early_only, cache[cols]]).sort_index()
+    out = out[~out.index.duplicated(keep="last")]
+    return out, note
+
+
 def align_monthly_bx_to_daily(close: pd.Series) -> pd.DataFrame:
     """把已收盤月線顏色貼到每一根日線。
 

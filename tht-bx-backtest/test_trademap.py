@@ -6,7 +6,8 @@ import numpy as np
 import pandas as pd
 
 from engine import ONE_WAY_COST, attach_metrics
-from monthly_bx import align_monthly_bx_to_daily, bx_color_name, monthly_bx_table, stitch_close
+from bear_windows import window_performance
+from monthly_bx import align_monthly_bx_to_daily, bx_color_name, monthly_bx_table, stitch_close, stitch_ohlcv
 from trademap import fair_value_touch, run_trade_map, variant_a_signals, variant_b_signals
 
 
@@ -151,6 +152,37 @@ def test_stitch_rescales_early_history_but_keeps_cache():
     assert abs(close.loc[idx_cache[0]] - cache["close"].iloc[0]) < 1e-9
     before = close.loc[close.index < idx_cache[0]]
     assert abs(before.iloc[-1] - 100.0) < 1e-6  # 50 * 2
+
+
+def test_stitch_ohlcv_keeps_cache_rows():
+    idx_cache = pd.bdate_range("2020-01-02", periods=8)
+    idx_early = pd.bdate_range("2019-12-02", "2020-01-20")
+    cache = pd.DataFrame(
+        {"open": 10.0, "high": 11.0, "low": 9.0, "close": np.linspace(100, 107, len(idx_cache)), "volume": 1.0},
+        index=idx_cache,
+    )
+    early = pd.DataFrame({"open": 5.0, "high": 6.0, "low": 4.0, "close": 40.0, "volume": 1.0}, index=idx_early)
+    early.loc[idx_cache, "close"] = cache["close"] / 2.0
+    early.loc[idx_cache, "open"] = 5.0
+    out, note = stitch_ohlcv(cache, early)
+    assert "銜接" in note
+    assert abs(out.loc[idx_cache[0], "close"] - cache["close"].iloc[0]) < 1e-9
+    before = out.loc[out.index < idx_cache[0]]
+    assert abs(before["close"].iloc[-1] - 80.0) < 1e-6  # 40 * 2
+    assert abs(before["open"].iloc[-1] - 10.0) < 1e-6
+
+
+def test_window_performance_uses_prior_close_and_path_drawdown():
+    idx = pd.bdate_range("2018-09-03", "2018-12-31")
+    eq = pd.Series(100.0, index=idx)
+    eq.loc["2018-10-01":"2018-11-01"] = 70.0
+    eq.loc["2018-11-02":] = 90.0
+    stats = window_performance(eq, "2018-10-01", "2018-12-24")
+    assert stats["covered"] is True
+    assert abs(stats["ret"] - (90.0 / 100.0 - 1.0)) < 1e-12
+    assert abs(stats["maxdd"] - (70.0 / 100.0 - 1.0)) < 1e-12
+    missing = window_performance(eq.loc["2018-11-01":], "2018-10-01", "2018-12-24")
+    assert missing["covered"] is False
 
 
 def test_gap_through_stop_cancels_entry():

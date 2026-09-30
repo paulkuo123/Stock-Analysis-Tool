@@ -74,3 +74,11 @@ python test_trademap.py
 ```
 
 報告：[report-v4-monthly-trademap.md](report-v4-monthly-trademap.md)。產出在 `results/v4/`。**不保證獲利。筆數少，不要當成該換成實盤預設。**
+
+同一套三種規則再跑約十年（2016-09-15～2026-09-14），參數與成本不變：
+
+```bash
+python run_backtest_v4_10y.py
+```
+
+報告：[report-v4-10y.md](report-v4-10y.md)。產出在 `results/v4_10y/`。
