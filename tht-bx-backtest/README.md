@@ -82,3 +82,11 @@ python run_backtest_v4_10y.py
 ```
 
 報告：[report-v4-10y.md](report-v4-10y.md)。產出在 `results/v4_10y/`。
+
+同一段十年再測減碼／加碼（權重固定，不另調參）：
+
+```bash
+python run_backtest_v4_sizing.py
+```
+
+報告：[report-v4-10y-sizing.md](report-v4-10y-sizing.md)。產出在 `results/v4_10y_sizing/`。
