@@ -90,3 +90,11 @@ python run_backtest_v4_sizing.py
 ```
 
 報告：[report-v4-10y-sizing.md](report-v4-10y-sizing.md)。產出在 `results/v4_10y_sizing/`。
+
+深紅時改用選擇權對沖（估價，不是歷史成交；比特幣排除）：
+
+```bash
+python run_backtest_v4_options.py
+```
+
+報告：[report-v4-10y-options.md](report-v4-10y-options.md)。產出在 `results/v4_10y_options/`。
