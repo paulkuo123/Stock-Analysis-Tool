@@ -154,6 +154,73 @@ def stitch_ohlcv(cache: pd.DataFrame, early: pd.DataFrame) -> tuple[pd.DataFrame
     return out, note
 
 
+def completed_weekly_closes(close: pd.Series) -> pd.Series:
+    """每個週日結束的那一週，最後一根日線收盤；整段資料的最後一週視為尚未收盤。
+
+    週的切法固定為週日結束（W-SUN）。股票通常停在週五，比特幣會停在週日。
+    週中只用上一根已收盤週，不用本週至今的收盤冒充週線。
+    """
+    if close.empty:
+        return close.copy()
+    px = close.astype(float).sort_index()
+    px = px[~px.index.duplicated(keep="last")]
+    periods = px.index.to_period("W-SUN")
+    last_period = periods[-1]
+    last_bars = px.groupby(periods).tail(1)
+    done = last_bars.index.to_period("W-SUN") < last_period
+    out = last_bars.loc[done]
+    out.name = "weekly_close"
+    return out
+
+
+def weekly_bx_table(close: pd.Series) -> pd.DataFrame:
+    """在已收盤週線收盤價上計算 BX。參數與月線相同，不另調。"""
+    weekly_close = completed_weekly_closes(close)
+    if weekly_close.empty:
+        return pd.DataFrame(columns=["weekly_close", "bx", "prev_bx", "color"])
+    bx_df = compute_bx(weekly_close)
+    prev = bx_df["bx"].shift(1)
+    colors = [
+        bx_color_name(float(b), float(p)) if np.isfinite(b) and np.isfinite(p) else None
+        for b, p in zip(bx_df["bx"].to_numpy(), prev.to_numpy())
+    ]
+    return pd.DataFrame(
+        {
+            "weekly_close": weekly_close.to_numpy(),
+            "bx": bx_df["bx"].to_numpy(),
+            "prev_bx": prev.to_numpy(),
+            "color": colors,
+        },
+        index=weekly_close.index,
+    )
+
+
+def align_weekly_bx_to_daily(close: pd.Series) -> pd.DataFrame:
+    """把已收盤週線 BX 貼到每一根日線。週收盤那根的收盤才知道新值，之後沿用到下一根週收盤。
+
+    「為負」是這根已收盤週線的 BX < 0。BX 還沒算出來的日子不當預警。
+    """
+    table = weekly_bx_table(close)
+    empty = pd.DataFrame(index=close.index)
+    empty["w_bx"] = np.nan
+    empty["w_week_end"] = pd.NaT
+    empty["w_negative"] = False
+    if table.empty:
+        return empty
+    publish = table.loc[np.isfinite(table["bx"].to_numpy(dtype=float))].copy()
+    if publish.empty:
+        return empty
+    full_index = close.index.union(publish.index).sort_values()
+    placed = pd.DataFrame(index=full_index)
+    placed["w_bx"] = publish["bx"].reindex(full_index)
+    placed["w_week_end"] = pd.Series(publish.index, index=publish.index).reindex(full_index)
+    filled = placed.ffill()
+    out = filled.reindex(close.index)
+    bx = out["w_bx"].to_numpy(dtype=float)
+    out["w_negative"] = np.isfinite(bx) & (bx < 0)
+    return out
+
+
 def align_monthly_bx_to_daily(close: pd.Series) -> pd.DataFrame:
     """把已收盤月線顏色貼到每一根日線。
 

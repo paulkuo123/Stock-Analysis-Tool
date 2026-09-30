@@ -98,3 +98,11 @@ python run_backtest_v4_options.py
 ```
 
 報告：[report-v4-10y-options.md](report-v4-10y-options.md)。產出在 `results/v4_10y_options/`。
+
+同一段十年再測日線預警減碼（E1 跌破下軌、E2 週線轉負、E3 分批回補），並把前後五年分開看。比例固定，不另調參：
+
+```bash
+python run_backtest_v4_early.py
+```
+
+報告：[report-v4-10y-early.md](report-v4-10y-early.md)。產出在 `results/v4_10y_early/`。
