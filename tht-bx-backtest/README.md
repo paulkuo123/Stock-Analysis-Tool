@@ -63,3 +63,14 @@ python test_v3.py
 
 報告：[report-v3-multi-ticker.md](report-v3-multi-ticker.md)。產出在 `results/v3/`。
 成功回測 7 檔，其中 1 檔總報酬打贏各自的 Buy&Hold。**不保證獲利，不要為各標的重調主參數。**
+
+## v4：官方 Trade Map（月線 BX）
+
+在 v3 同一批標的、同一段約五年、同一套成本上，改照官方 Trade Map 重測。**主要結果是變體 B**（月線確認 + 回到 33 日公允價值帶才進 + 下軌失效價）。變體 A 只把出場改成月線深紅，用來拆差異。不改 PR #3，也不調 N／TW／BX。
+
+```bash
+python run_backtest_v4_trademap.py
+python test_trademap.py
+```
+
+報告：[report-v4-monthly-trademap.md](report-v4-monthly-trademap.md)。產出在 `results/v4/`。**不保證獲利。筆數少，不要當成該換成實盤預設。**
