@@ -106,3 +106,11 @@ python run_backtest_v4_early.py
 ```
 
 報告：[report-v4-10y-early.md](report-v4-10y-early.md)。產出在 `results/v4_10y_early/`。
+
+拿掉 2024-09 之後的大多頭，用 2016-09～2024-08 重算舊版、A、B、C1、C2、C3，並單獨看最近兩年與三段下跌。過線標準不變：
+
+```bash
+python run_backtest_v4_exbull.py
+```
+
+報告：[report-v4-8y-exbull.md](report-v4-8y-exbull.md)。產出在 `results/v4_8y_exbull/`。
